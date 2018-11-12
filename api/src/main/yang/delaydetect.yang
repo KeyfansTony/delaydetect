@@ -1,0 +1,39 @@
+module delaydetect {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:delaydetect";
+    prefix "delaydetect";
+
+    revision "2015-01-05" {
+        description "Initial revision of delaydetect model";
+    }
+
+    rpc getDelay {
+        input {
+            leaf NodeConnector {
+                type string;
+            }
+        }
+        output {
+            leaf delay {
+                type uint32;
+            }
+        }
+    }
+    rpc getGlobalDelay {
+        output {
+            list delay-list {
+                description "latency info";
+                config false;
+                key "nodeConnector";
+                leaf nodeConnector {
+                    description "srcnode";
+                    type string;
+                }
+                leaf delay {
+                    description "delay";
+                    type uint32;
+                }
+            }
+        }
+    }
+}

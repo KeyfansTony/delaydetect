@@ -1,0 +1,24 @@
+module delaydetect-config {
+
+    yang-version 1;
+    namespace "urn:opendaylight:packet:delaydetect-config";
+    prefix "delaydetect-config";
+
+    description "This module contains the base configuration for implementation.";
+
+    revision 2018-11-07 {
+            description "Initial revision.";
+    }
+
+    container delaydetect-config {
+        leaf querry-delay {
+            type uint8;
+            default 1;
+        }
+        leaf is-active {
+            type boolean;
+            default false;
+        }
+    }
+
+}
