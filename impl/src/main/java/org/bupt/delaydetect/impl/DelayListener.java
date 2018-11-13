@@ -22,12 +22,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DelayListener implements Ipv4PacketListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(DelayListener.class);
     private DelaydetectConfig delaydetectConfig;
     private Map<String, Long> delayMap;
+    private Map<String, Long[]> loopDelayMap = new ConcurrentHashMap<>();
+    private Map<String, Long> echoDelayMap = new ConcurrentHashMap<>();
 
     public DelayListener(DelaydetectConfig config, Map<String, Long> delayMap) {
         this.delaydetectConfig = config;
@@ -61,14 +64,32 @@ public class DelayListener implements Ipv4PacketListener {
             long Time1 = BitBufferHelper.getLong(ipv4Packet.getIpv4Options());
             String ncId = rawPacket.getIngress().getValue().firstIdentifierOf(NodeConnector.class).firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue();
             long delay = Time2 - Time1;
-            delayMap.put(ncId, delay);
+            int rawNodeId = ipv4Packet.getVersion();//TODO get nodeId
+            loopDelayMap.put(ncId, new Long[]{delay, (long) rawNodeId});
             LOG.info(ncId + ": " + delay);
         }
         if (ipv4Packet.getProtocol() == KnownIpProtocols.Experimentation2) {
             long Time1 = BitBufferHelper.getLong(ipv4Packet.getIpv4Options());
             String ncId = rawPacket.getIngress().getValue().firstIdentifierOf(NodeConnector.class).firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue();
             long delay = Time2 - Time1;
+            echoDelayMap.put(ncId, delay);
             LOG.info("Echo: " + ncId + ": " + delay);
+        }
+        if (!loopDelayMap.isEmpty() && !echoDelayMap.isEmpty()) {
+            for (String ncId : loopDelayMap.keySet()) {
+                Long tmp = loopDelayMap.get(ncId)[0];
+                for (String nodeId : echoDelayMap.keySet()) {
+                    String forwardId = "openflow:" + ncId.split(":")[1] + ":LOCAL";
+                    String backwardId = "openflow:" + loopDelayMap.get(ncId)[1] + ":LOCAL";
+                    if (forwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
+                    if (backwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
+                }
+                if (tmp >= 0) {
+                    delayMap.put(ncId, tmp);
+                } else {
+                    delayMap.put(ncId, (long) 0);
+                }
+            }
         }
 
     }

@@ -36,7 +36,7 @@ public class DelaydetectProvider {
     private BindingAwareBroker.RpcRegistration<DelaydetectService> rpcRegistration;
 
     private static Thread thread;
-    private static Map<String, Long> delayMap = new ConcurrentHashMap<String, Long>();
+    private static Map<String, Long> delayMap = new ConcurrentHashMap<>();
     private static Registration registration;
 
     public DelaydetectProvider(final DataBroker dataBroker, DelaydetectConfig config, NotificationProviderService notificationProviderService, PacketProcessingService packetProcessingService, RpcProviderRegistry rpcProviderRegistry, SalFlowService salFlowService, SalEchoService salEchoService) {

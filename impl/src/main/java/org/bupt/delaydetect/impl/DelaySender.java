@@ -14,15 +14,11 @@ import org.opendaylight.l2switch.arphandler.core.PacketDispatcher;
 import org.opendaylight.l2switch.arphandler.inventory.InventoryReader;
 import org.opendaylight.openflowplugin.api.OFConstants;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Uri;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.ControllerActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SalEchoService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInputBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.OutputPortValues;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
@@ -36,7 +32,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.Pa
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.TransmitPacketInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.TransmitPacketInputBuilder;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +40,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.Future;
 
 public class DelaySender implements Runnable {
 
@@ -90,11 +84,9 @@ public class DelaySender implements Runnable {
             try {
                 //generate a ipv4 packet
                 iPv4.setSourceAddress(InetAddress.getByName("0.0.0.1"))
-                        .setDestinationAddress(InetAddress.getByName("0.0.0.2"))
-                        .setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
+                        .setDestinationAddress(InetAddress.getByName("0.0.0.2"));
                 echo.setSourceAddress(InetAddress.getByName("0.0.0.3"))
-                        .setDestinationAddress(InetAddress.getByName("0.0.0.4"))
-                        .setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
+                        .setDestinationAddress(InetAddress.getByName("0.0.0.4"));
 
                 //generate a ethernet packet
                 Ethernet ethernet = new Ethernet();
@@ -102,19 +94,23 @@ public class DelaySender implements Runnable {
                 EthernetAddress destMac = new EthernetAddress(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef});
                 ethernet.setSourceMACAddress(srcMac.getValue())
                         .setDestinationMACAddress(destMac.getValue())
-                        .setEtherType(EtherTypes.IPv4.shortValue())
-                        .setPayload(iPv4);
+                        .setEtherType(EtherTypes.IPv4.shortValue());
                 Ethernet echoEthernet = new Ethernet();
                 echoEthernet.setSourceMACAddress(new EthernetAddress(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xec}).getValue())
                         .setDestinationMACAddress(new EthernetAddress(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xed}).getValue())
-                        .setEtherType(EtherTypes.IPv4.shortValue())
-                        .setPayload(echo);
+                        .setEtherType(EtherTypes.IPv4.shortValue());
 
                 //flood packet
                 packetDispatcher.setInventoryReader(inventoryReader);
                 // TODO HashMap<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
 
                 for (String nodeId : nodeConnectorMap.keySet()) {
+                    iPv4.setOptions(BitBufferHelper.toByteArray(System.nanoTime()))
+                            .setVersion((byte) Integer.parseInt(nodeId.split(":")[1]));
+                    echo.setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
+                    ethernet.setPayload(iPv4);
+                    echoEthernet.setPayload(echo);
+
                     packetDispatcher.floodPacket(nodeId, ethernet.serialize(), nodeConnectorMap.get(nodeId), null);
 
                     OutputActionBuilder output = new OutputActionBuilder();
