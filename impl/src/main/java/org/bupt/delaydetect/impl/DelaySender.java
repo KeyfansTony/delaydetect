@@ -12,14 +12,10 @@ import org.opendaylight.controller.liblldp.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.l2switch.arphandler.core.PacketDispatcher;
 import org.opendaylight.l2switch.arphandler.inventory.InventoryReader;
-import org.opendaylight.openflowplugin.api.OFConstants;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Uri;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SalEchoService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.OutputPortValues;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInputBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
@@ -29,17 +25,16 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.delaydetect.config.rev181107.DelaydetectConfig;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.KnownIpProtocols;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.TransmitPacketInput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.TransmitPacketInputBuilder;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
 
 public class DelaySender implements Runnable {
 
@@ -49,12 +44,14 @@ public class DelaySender implements Runnable {
     private final PacketProcessingService packetProcessingService;
     private final SalEchoService salEchoService;
     private InitialFlowWriter initialFlowWriter;
+    private Map<String, Long> echoDelayMap;
 
-    public DelaySender(DataBroker dataBroker, DelaydetectConfig delaydetectConfig, PacketProcessingService packetProcessingService, SalEchoService salEchoService) {
+    public DelaySender(DataBroker dataBroker, DelaydetectConfig delaydetectConfig, PacketProcessingService packetProcessingService, SalEchoService salEchoService, Map<String, Long> echoDelayMap) {
         this.dataBroker = dataBroker;
         this.delaydetectConfig = delaydetectConfig;
         this.packetProcessingService = packetProcessingService;
         this.salEchoService = salEchoService;
+        this.echoDelayMap = echoDelayMap;
     }
 
     public void setInitialFlowWriter(InitialFlowWriter initialFlowWriter) {
@@ -79,14 +76,10 @@ public class DelaySender implements Runnable {
         while(delaydetectConfig.isIsActive()) {
             IPv4 iPv4 = new IPv4();
             iPv4.setTtl((byte) 1).setProtocol((byte) KnownIpProtocols.Experimentation1.getIntValue());
-            IPv4 echo = new IPv4();
-            echo.setTtl((byte) 1).setProtocol((byte) KnownIpProtocols.Experimentation2.getIntValue());
             try {
                 //generate a ipv4 packet
                 iPv4.setSourceAddress(InetAddress.getByName("0.0.0.1"))
                         .setDestinationAddress(InetAddress.getByName("0.0.0.2"));
-                echo.setSourceAddress(InetAddress.getByName("0.0.0.3"))
-                        .setDestinationAddress(InetAddress.getByName("0.0.0.4"));
 
                 //generate a ethernet packet
                 Ethernet ethernet = new Ethernet();
@@ -95,53 +88,26 @@ public class DelaySender implements Runnable {
                 ethernet.setSourceMACAddress(srcMac.getValue())
                         .setDestinationMACAddress(destMac.getValue())
                         .setEtherType(EtherTypes.IPv4.shortValue());
-                Ethernet echoEthernet = new Ethernet();
-                echoEthernet.setSourceMACAddress(new EthernetAddress(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xec}).getValue())
-                        .setDestinationMACAddress(new EthernetAddress(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xed}).getValue())
-                        .setEtherType(EtherTypes.IPv4.shortValue());
 
                 //flood packet
                 packetDispatcher.setInventoryReader(inventoryReader);
                 // TODO HashMap<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
 
                 for (String nodeId : nodeConnectorMap.keySet()) {
-                    iPv4.setOptions(BitBufferHelper.toByteArray(System.nanoTime()))
-                            .setVersion((byte) Integer.parseInt(nodeId.split(":")[1]));
-                    echo.setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
+                    iPv4.setVersion((byte) Integer.parseInt(nodeId.split(":")[1]))
+                            .setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
                     ethernet.setPayload(iPv4);
-                    echoEthernet.setPayload(echo);
-
                     packetDispatcher.floodPacket(nodeId, ethernet.serialize(), nodeConnectorMap.get(nodeId), null);
 
-                    OutputActionBuilder output = new OutputActionBuilder();
-                    output.setMaxLength(OFConstants.OFPCML_NO_BUFFER);
-                    Uri value = new Uri(OutputPortValues.CONTROLLER.toString());
-                    output.setOutputNodeConnector(value);
-
-                    List<Action> actionList = new ArrayList<>();
-                    actionList.add(new ActionBuilder()
-                            .setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build())
-                            .build());
                     InstanceIdentifier<Node> nodeInstanceId = InstanceIdentifier.builder(Nodes.class)
-                            .child(Node.class, new NodeKey(new NodeId(nodeId))).build();
-                    TransmitPacketInput input = new TransmitPacketInputBuilder()
-                            .setIngress(nodeConnectorMap.get(nodeId))
-                            .setEgress(nodeConnectorMap.get(nodeId))
-                            .setNode(new NodeRef(nodeInstanceId))
-                            .setPayload(echoEthernet.serialize())
-                            .setAction(actionList)
-                            .build();
-                    packetProcessingService.transmitPacket(input);
-                    /*InstanceIdentifier<Node> nodeInstanceId = InstanceIdentifier.builder(Nodes.class)
                             .child(Node.class, new NodeKey(new NodeId(nodeId))).build();
                     SendEchoInput sendEchoInput = new SendEchoInputBuilder()
                             .setData(BitBufferHelper.toByteArray(System.nanoTime()))
                             .setNode(new NodeRef(nodeInstanceId)).build();
                     long Time1 = System.nanoTime();
                     Future<RpcResult<SendEchoOutput>> result = salEchoService.sendEcho(sendEchoInput);
-                    while(!result.isDone()){ }
                     long Time2 = System.nanoTime();
-                    long delay0 = Time2 - Time1;*/
+                    echoDelayMap.put(nodeId,(Time2 - Time1));
 
                     LOG.info(nodeId + ": delay success. ");
                 }

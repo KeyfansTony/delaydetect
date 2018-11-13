@@ -37,6 +37,7 @@ public class DelaydetectProvider {
 
     private static Thread thread;
     private static Map<String, Long> delayMap = new ConcurrentHashMap<>();
+    private static Map<String, Long> echoDelayMap = new ConcurrentHashMap<>();
     private static Registration registration;
 
     public DelaydetectProvider(final DataBroker dataBroker, DelaydetectConfig config, NotificationProviderService notificationProviderService, PacketProcessingService packetProcessingService, RpcProviderRegistry rpcProviderRegistry, SalFlowService salFlowService, SalEchoService salEchoService) {
@@ -55,11 +56,11 @@ public class DelaydetectProvider {
     public void init() {
         LOG.info("DelaydetectProvider Session Initiated");
         InitialFlowWriter flowWriter = new InitialFlowWriter(salFlowService);
-        DelaySender delaySender = new DelaySender(dataBroker, delaydetectConfig, packetProcessingService, salEchoService);
+        DelaySender delaySender = new DelaySender(dataBroker, delaydetectConfig, packetProcessingService, salEchoService, echoDelayMap);
         delaySender.setInitialFlowWriter(flowWriter);
         thread = new Thread(delaySender, "Speaker");
         thread.start();
-        DelayListener delayListener = new DelayListener(delaydetectConfig, delayMap);
+        DelayListener delayListener = new DelayListener(delaydetectConfig, delayMap, echoDelayMap);
         registration = notificationProviderService.registerNotificationListener(delayListener);
         DelayServiceImpl delayService = new DelayServiceImpl(delayMap);
         rpcRegistration = rpcProviderRegistry.addRpcImplementation(DelaydetectService.class, delayService);
