@@ -8,7 +8,6 @@
 package org.bupt.delaydetect.impl;
 
 import org.bupt.delaydetect.impl.util.IPv4;
-import org.bupt.delaydetect.impl.util.InitialFlowWriter;
 import org.opendaylight.controller.liblldp.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.bupt.delaydetect.impl.util.PacketDispatcher;
@@ -33,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
 
@@ -44,7 +42,6 @@ public class DelaySender implements Runnable {
     private final DelaydetectConfig delaydetectConfig;
     private final PacketProcessingService packetProcessingService;
     private final SalEchoService salEchoService;
-    private InitialFlowWriter initialFlowWriter;
     private Map<String, Long> echoDelayMap;
 
     public DelaySender(DataBroker dataBroker, DelaydetectConfig delaydetectConfig, PacketProcessingService packetProcessingService, SalEchoService salEchoService, Map<String, Long> echoDelayMap) {
@@ -55,10 +52,6 @@ public class DelaySender implements Runnable {
         this.echoDelayMap = echoDelayMap;
     }
 
-    public void setInitialFlowWriter(InitialFlowWriter initialFlowWriter) {
-        this.initialFlowWriter = initialFlowWriter;
-    }
-
     @Override
     public void run() {
 
@@ -67,12 +60,6 @@ public class DelaySender implements Runnable {
         InventoryReader inventoryReader = new InventoryReader(dataBroker);
         inventoryReader.setRefreshData(true);
         inventoryReader.readInventory();
-        Map<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
-        for (String nodeId : nodeConnectorMap.keySet()) {
-            InstanceIdentifier<Node> nodeInstanceId = InstanceIdentifier.builder(Nodes.class)
-                    .child(Node.class, new NodeKey(new NodeId(nodeId))).build();
-            initialFlowWriter.addInitialFlows(nodeInstanceId);
-        }
 
         while(delaydetectConfig.isIsActive()) {
             IPv4 iPv4 = new IPv4();
@@ -92,7 +79,7 @@ public class DelaySender implements Runnable {
 
                 //flood packet
                 packetDispatcher.setInventoryReader(inventoryReader);
-                // TODO HashMap<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
+                Map<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
 
                 for (String nodeId : nodeConnectorMap.keySet()) {
                     iPv4.setVersion((byte) Integer.parseInt(nodeId.split(":")[1]))
