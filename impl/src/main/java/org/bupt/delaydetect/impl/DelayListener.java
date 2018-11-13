@@ -75,20 +75,20 @@ public class DelayListener implements Ipv4PacketListener {
         if (!loopDelayMap.isEmpty() && !echoDelayMap.isEmpty()) {
             for (String ncid : loopDelayMap.keySet()) {
                 Long tmp = loopDelayMap.get(ncid)[0];
-                for (String nodeId : echoDelayMap.keySet()) {
-                    String forwardId = "openflow:" + ncid.split(":")[1];
-                    String backwardId = "openflow:" + loopDelayMap.get(ncid)[1];
-                    if (forwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
-                    if (backwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
-                }
+                long echo1 = echoDelayMap.getOrDefault(ncIdToNodeId(ncId), 0L);
+                long echo2 = echoDelayMap.getOrDefault("openflow:" + loopDelayMap.get(ncId)[1], 0L);
+                tmp = tmp - echo1 / 2 - echo2 / 2;
                 if (tmp >= 0) {
                     delayMap.put(ncid, tmp);
                 } else {
-                    delayMap.put(ncid, (long) 0);
+                    delayMap.put(ncid, 0L);
                 }
             }
         }
-
     }
 
+    private String ncIdToNodeId(String ncId) {
+        String[] info = ncId.split(":");
+        return info[0] + ":" + info[1];
+    }
 }

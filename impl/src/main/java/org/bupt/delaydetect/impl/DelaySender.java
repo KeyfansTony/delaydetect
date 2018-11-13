@@ -8,10 +8,11 @@
 package org.bupt.delaydetect.impl;
 
 import org.bupt.delaydetect.impl.util.IPv4;
+import org.bupt.delaydetect.impl.util.InitialFlowWriter;
 import org.opendaylight.controller.liblldp.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
-import org.opendaylight.l2switch.arphandler.core.PacketDispatcher;
-import org.opendaylight.l2switch.arphandler.inventory.InventoryReader;
+import org.bupt.delaydetect.impl.util.PacketDispatcher;
+import org.bupt.delaydetect.impl.util.InventoryReader;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SalEchoService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.echo.service.rev150305.SendEchoInputBuilder;
@@ -66,7 +67,7 @@ public class DelaySender implements Runnable {
         InventoryReader inventoryReader = new InventoryReader(dataBroker);
         inventoryReader.setRefreshData(true);
         inventoryReader.readInventory();
-        HashMap<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
+        Map<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
         for (String nodeId : nodeConnectorMap.keySet()) {
             InstanceIdentifier<Node> nodeInstanceId = InstanceIdentifier.builder(Nodes.class)
                     .child(Node.class, new NodeKey(new NodeId(nodeId))).build();
