@@ -66,31 +66,42 @@ public class DelayListener implements Ipv4PacketListener {
             long delay = Time2 - Time1;
             int rawNodeId = ipv4Packet.getVersion();//TODO get nodeId
             loopDelayMap.put(ncId, new Long[]{delay, (long) rawNodeId});
-            LOG.info(ncId + ": " + delay);
+             LOG.info(ncId + ": " + delay);
         }
         if (ipv4Packet.getProtocol() == KnownIpProtocols.Experimentation2) {
             long Time1 = BitBufferHelper.getLong(ipv4Packet.getIpv4Options());
             String ncId = rawPacket.getIngress().getValue().firstIdentifierOf(NodeConnector.class).firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue();
+            String nodeId = ncId.replace(":LOCAL", "");
             long delay = Time2 - Time1;
-            echoDelayMap.put(ncId, delay);
-            LOG.info("Echo: " + ncId + ": " + delay);
+            echoDelayMap.put(nodeId, delay);
+            LOG.info("Echo: " + nodeId + ": " + delay);
         }
         if (!loopDelayMap.isEmpty() && !echoDelayMap.isEmpty()) {
             for (String ncId : loopDelayMap.keySet()) {
                 Long tmp = loopDelayMap.get(ncId)[0];
-                for (String nodeId : echoDelayMap.keySet()) {
-                    String forwardId = "openflow:" + ncId.split(":")[1] + ":LOCAL";
-                    String backwardId = "openflow:" + loopDelayMap.get(ncId)[1] + ":LOCAL";
-                    if (forwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
-                    if (backwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
-                }
+//                for (String nodeId : echoDelayMap.keySet()) {
+//                    String forwardId = "openflow:"  + ncId.split(":")[1] + ":LOCAL";
+//                    String backwardId = "openflow:" + loopDelayMap.get(ncId)[1] + ":LOCAL";
+//                    if (forwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
+//                    if (backwardId.equals(nodeId)) tmp -= echoDelayMap.get(nodeId) / 2;
+//                }
+
+                long echo1 = echoDelayMap.getOrDefault(ncIdToNodeId(ncId), 0L);
+                long echo2 = echoDelayMap.getOrDefault("openflow:" + loopDelayMap.get(ncId)[1], 0L);
+                tmp = tmp - echo1 / 2 - echo2 / 2;
                 if (tmp >= 0) {
                     delayMap.put(ncId, tmp);
                 } else {
-                    delayMap.put(ncId, (long) 0);
+                    delayMap.put(ncId, 0L);
                 }
             }
         }
+
+    }
+
+    private String ncIdToNodeId(String ncId) {
+        String[] info = ncId.split(":");
+        return info[0] + ":" + info[1];
 
     }
 
