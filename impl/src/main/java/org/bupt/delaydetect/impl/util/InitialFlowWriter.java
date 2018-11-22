@@ -154,14 +154,9 @@ public class InitialFlowWriter implements DataChangeListener {
         }
 
         public void addInitialFlows(InstanceIdentifier<Node> nodeId) {
-            LOG.debug("adding initial flows for node {} ", nodeId);
-
             InstanceIdentifier<Table> tableId = getTableInstanceId(nodeId);
             InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
-
             writeFlowToController(nodeId, tableId, flowId, createReceiveFlow(DEFAULT_FLOW_TABLE_ID, DEFAULT_FLOW_PRIORITY));
-
-            LOG.debug("Added initial flows for node {} ", nodeId);
         }
 
         private Flow createReceiveFlow(Short tableId, int priority) {

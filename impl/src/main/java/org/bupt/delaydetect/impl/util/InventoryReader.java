@@ -157,11 +157,7 @@ public class InventoryReader implements DataChangeListener{
                         .read(LogicalDatastoreType.OPERATIONAL, nodesInsIdBuilder.build()).get();
                 if (dataObjectOptional.isPresent())
                     nodes = (Nodes) dataObjectOptional.get();
-            } catch (InterruptedException e) {
-                LOG.error("Failed to read nodes from Operation data store.");
-                readOnlyTransaction.close();
-                throw new RuntimeException("Failed to read nodes from Operation data store.", e);
-            } catch (ExecutionException e) {
+            } catch (InterruptedException | ExecutionException e) {
                 LOG.error("Failed to read nodes from Operation data store.");
                 readOnlyTransaction.close();
                 throw new RuntimeException("Failed to read nodes from Operation data store.", e);
@@ -174,12 +170,12 @@ public class InventoryReader implements DataChangeListener{
                     List<NodeConnector> nodeConnectors = node.getNodeConnector();
                     if (nodeConnectors != null) {
                         for (NodeConnector nodeConnector : nodeConnectors) {
-                            // Read STP status for this NodeConnector
+                            /*// Read STP status for this NodeConnector
                             StpStatusAwareNodeConnector saNodeConnector = nodeConnector
                                     .getAugmentation(StpStatusAwareNodeConnector.class);
                             if (saNodeConnector != null && StpStatus.Discarding.equals(saNodeConnector.getStatus())) {
                                 continue;
-                            }
+                            }*/
                             if (nodeConnector.getKey().toString().contains("LOCAL")) {
                                 continue;
                             }
@@ -237,12 +233,12 @@ public class InventoryReader implements DataChangeListener{
                 LOG.debug("Looking address{} in node : {}", macAddress, nodeInsId);
                 if (node.getNodeConnector() != null) {
                     for (NodeConnector nc : node.getNodeConnector()) {
-                        // Don't look for mac in discarding node connectors
+                        /*// Don't look for mac in discarding node connectors
                         StpStatusAwareNodeConnector saNodeConnector = nc
                                 .getAugmentation(StpStatusAwareNodeConnector.class);
                         if (saNodeConnector != null && StpStatus.Discarding.equals(saNodeConnector.getStatus())) {
                             continue;
-                        }
+                        }*/
                         LOG.debug("Looking address{} in nodeconnector : {}", macAddress, nc.getKey());
                         AddressCapableNodeConnector acnc = nc.getAugmentation(AddressCapableNodeConnector.class);
                         if (acnc != null) {
@@ -264,11 +260,7 @@ public class InventoryReader implements DataChangeListener{
                     LOG.debug("Node connectors data is not present for node {}", node.getId());
                 }
             }
-        } catch (InterruptedException e) {
-            LOG.error("Failed to read nodes from Operation data store.");
-            readOnlyTransaction.close();
-            throw new RuntimeException("Failed to read nodes from Operation data store.", e);
-        } catch (ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to read nodes from Operation data store.");
             readOnlyTransaction.close();
             throw new RuntimeException("Failed to read nodes from Operation data store.", e);
