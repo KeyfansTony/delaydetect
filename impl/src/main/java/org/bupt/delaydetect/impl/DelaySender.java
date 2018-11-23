@@ -37,6 +37,7 @@ import java.util.concurrent.Future;
 
 public class DelaySender implements Runnable {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DelaySender.class);
     private final DataBroker dataBroker;
     private final DelaydetectConfig delaydetectConfig;
     private final PacketProcessingService packetProcessingService;
@@ -93,8 +94,11 @@ public class DelaySender implements Runnable {
                             .setNode(new NodeRef(nodeInstanceId)).build();
                     long Time1 = System.nanoTime();
                     Future<RpcResult<SendEchoOutput>> result = salEchoService.sendEcho(sendEchoInput);
+                    while (!result.isDone());
                     long Time2 = System.nanoTime();
-                    echoDelayMap.put(nodeId,(Time2 - Time1));
+                    long echoDelay = (Time2 - Time1);
+                    echoDelayMap.put(nodeId, echoDelay);
+                    // LOG.info("echo " + nodeId + ": " + echoDelay);
 
                 }
             } catch (ConstructionException | UnknownHostException | PacketException e) {
