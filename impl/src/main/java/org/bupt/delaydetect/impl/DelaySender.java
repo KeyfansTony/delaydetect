@@ -82,7 +82,7 @@ public class DelaySender implements Runnable {
                 Map<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
 
                 for (String nodeId : nodeConnectorMap.keySet()) {
-                    iPv4.setVersion((byte) Integer.parseInt(nodeId.split(":")[1]))
+                    iPv4//.setVersion((byte) Integer.parseInt(nodeId.split(":")[1]))
                             .setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
                     ethernet.setPayload(iPv4);
                     packetDispatcher.floodPacket(nodeId, ethernet.serialize(), nodeConnectorMap.get(nodeId), null);
