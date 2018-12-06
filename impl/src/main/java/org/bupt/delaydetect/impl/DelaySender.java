@@ -61,7 +61,7 @@ public class DelaySender implements Runnable {
         inventoryReader.setRefreshData(true);
         inventoryReader.readInventory();
 
-        while(delaydetectConfig.isIsActive()) {
+        while (delaydetectConfig.isIsActive()) {
             IPv4 iPv4 = new IPv4();
             iPv4.setTtl((byte) 1).setProtocol((byte) KnownIpProtocols.Experimentation1.getIntValue());
             try {
@@ -82,8 +82,7 @@ public class DelaySender implements Runnable {
                 Map<String, NodeConnectorRef> nodeConnectorMap = inventoryReader.getControllerSwitchConnectors();
 
                 for (String nodeId : nodeConnectorMap.keySet()) {
-                    iPv4.setVersion((byte) Integer.parseInt(nodeId.split(":")[1]))
-                            .setOptions(BitBufferHelper.toByteArray(System.nanoTime()));
+                    iPv4.setOptions(mergeOptions(BitBufferHelper.toByteArray(System.nanoTime()), BitBufferHelper.toByteArray(Long.parseLong(nodeId.split(":")[1]))));
                     ethernet.setPayload(iPv4);
                     packetDispatcher.floodPacket(nodeId, ethernet.serialize(), nodeConnectorMap.get(nodeId), null);
 
@@ -94,7 +93,7 @@ public class DelaySender implements Runnable {
                             .setNode(new NodeRef(nodeInstanceId)).build();
                     long Time1 = System.nanoTime();
                     Future<RpcResult<SendEchoOutput>> result = salEchoService.sendEcho(sendEchoInput);
-                    while (!result.isDone());
+                    while (!result.isDone()) ;
                     long Time2 = System.nanoTime();
                     long echoDelay = (Time2 - Time1);
                     echoDelayMap.put(nodeId, echoDelay);
@@ -115,4 +114,12 @@ public class DelaySender implements Runnable {
 
     }
 
+    private byte[] mergeOptions(byte[] aOption, byte[] bOption) {
+        byte[] option = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for (int i = 0; i < aOption.length; i++) {
+            option[i] = aOption[i];
+            option[i + 8] = bOption[i];
+        }
+        return option;
+    }
 }

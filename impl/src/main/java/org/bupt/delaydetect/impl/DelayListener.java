@@ -65,11 +65,18 @@ public class DelayListener implements Ipv4PacketListener {
             return;
         }
 
-        long Time1 = BitBufferHelper.getLong(ipv4Packet.getIpv4Options());
+        byte[] option = ipv4Packet.getIpv4Options();
+        byte[] timeOption = new byte[]{0, 0, 0, 0, 0, 0, 0, 0};
+        byte[] idOption = new byte[]{0, 0, 0, 0, 0, 0, 0, 0};
+        for (int i = 0; i < timeOption.length; i++) {
+            timeOption[i] = option[i];
+            idOption[i] = option[i + 8];
+        }
+        long Time1 = BitBufferHelper.getLong(timeOption);
         String ncId = rawPacket.getIngress().getValue().firstIdentifierOf(NodeConnector.class).firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue();
         long delay = Time2 - Time1;
-        int rawNodeId = ipv4Packet.getVersion();//TODO get nodeId
-        loopDelayMap.put(ncId, new Long[]{delay, (long) rawNodeId});
+        long rawNodeId = BitBufferHelper.getLong(idOption);
+        loopDelayMap.put(ncId, new Long[]{delay, rawNodeId});
         LOG.info(ncId + ": " + delay);
 
         if (!loopDelayMap.isEmpty() && !echoDelayMap.isEmpty()) {
