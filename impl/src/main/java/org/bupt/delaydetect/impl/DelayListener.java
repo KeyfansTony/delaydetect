@@ -77,7 +77,7 @@ public class DelayListener implements Ipv4PacketListener {
         long delay = Time2 - Time1;
         long rawNodeId = BitBufferHelper.getLong(idOption);
         loopDelayMap.put(ncId, new Long[]{delay, rawNodeId});
-        LOG.info(ncId + ": " + delay);
+        //LOG.info(ncId + ": " + delay);
 
         if (!loopDelayMap.isEmpty() && !echoDelayMap.isEmpty()) {
             for (String ncid : loopDelayMap.keySet()) {
