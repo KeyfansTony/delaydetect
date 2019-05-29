@@ -91,8 +91,6 @@ public class DelayListener implements Ipv4PacketListener {
                     } else{
                         delayMap.put(ncid, tmp);
                     }
-                } else {
-                    delayMap.put(ncid, 0L);
                 }
             }
         }
