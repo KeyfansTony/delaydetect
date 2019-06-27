@@ -85,12 +85,8 @@ public class DelayListener implements Ipv4PacketListener {
                 long echo1 = echoDelayMap.getOrDefault(ncIdToNodeId(ncId), 0L);
                 long echo2 = echoDelayMap.getOrDefault("openflow:" + loopDelayMap.get(ncId)[1], 0L);
                 tmp = tmp - echo1 / 2 - echo2 / 2;
-                if (tmp >= 0) {
-                    if (tmp >= 100000000L) {
-                        delayMap.put(ncid, 100000000L);
-                    } else{
-                        delayMap.put(ncid, tmp);
-                    }
+                if (tmp >= 0 && tmp <= 100000000L) {
+                    delayMap.put(ncid, tmp);
                 }
             }
         }

@@ -13,11 +13,11 @@ module delaydetect-config {
     container delaydetect-config {
         leaf querry-delay {
             type uint8;
-            default 1;
+            default 5;
         }
         leaf is-active {
             type boolean;
-            default false;
+            default true;
         }
     }
 
