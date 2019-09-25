@@ -8,6 +8,8 @@
 package org.bupt.delaydetect.impl;
 
 import org.bupt.delaydetect.impl.util.InitialFlowWriter;
+import org.bupt.delaydetect.impl.util.InventoryReader;
+import org.bupt.delaydetect.impl.util.PacketDispatcher;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
@@ -23,6 +25,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class DelaydetectProvider {
 
@@ -36,10 +41,11 @@ public class DelaydetectProvider {
     private final SalEchoService salEchoService;
     private BindingAwareBroker.RpcRegistration<DelaydetectService> rpcRegistration;
 
-    private static Thread thread;
-    private static Map<String, Long> delayMap = new ConcurrentHashMap<>();
-    private static Map<String, Long> echoDelayMap = new ConcurrentHashMap<>();
+    private Map<String, Long> delayMap = new ConcurrentHashMap<>();
+    private Map<String, Long> echoDelayMap = new ConcurrentHashMap<>();
     private Registration delayRegistration = null, topoNodeListenerReg = null;
+    private static final int CPUS = Runtime.getRuntime().availableProcessors();
+    private final ScheduledExecutorService service = Executors.newScheduledThreadPool(CPUS);
 
     public DelaydetectProvider(final DataBroker dataBroker, DelaydetectConfig config, NotificationProviderService notificationProviderService, PacketProcessingService packetProcessingService, RpcProviderRegistry rpcProviderRegistry, SalFlowService salFlowService, SalEchoService salEchoService) {
         this.dataBroker = dataBroker;
@@ -57,9 +63,15 @@ public class DelaydetectProvider {
     public void init() {
         InitialFlowWriter flowWriter = new InitialFlowWriter(salFlowService);
         topoNodeListenerReg = flowWriter.registerAsDataChangeListener(dataBroker);
-        DelaySender delaySender = new DelaySender(dataBroker, delaydetectConfig, packetProcessingService, salEchoService, echoDelayMap);
-        thread = new Thread(delaySender, "DelayDetect");
-        thread.start();
+        PacketDispatcher packetDispatcher = new PacketDispatcher();
+        packetDispatcher.setPacketProcessingService(packetProcessingService);
+        InventoryReader inventoryReader = new InventoryReader(dataBroker);
+        inventoryReader.setRefreshData(true);
+        inventoryReader.readInventory();
+        packetDispatcher.setInventoryReader(inventoryReader);
+
+        DelaySender delaySender = new DelaySender(dataBroker, delaydetectConfig, packetProcessingService, salEchoService, packetDispatcher, inventoryReader, echoDelayMap);
+        service.scheduleAtFixedRate(delaySender, delaydetectConfig.getQuerryDelay() * 100, delaydetectConfig.getQuerryDelay() * 100, TimeUnit.MILLISECONDS);
         DelayListener delayListener = new DelayListener(delaydetectConfig, delayMap, echoDelayMap);
         delayRegistration = notificationProviderService.registerNotificationListener(delayListener);
         DelayServiceImpl delayService = new DelayServiceImpl(delayMap);
@@ -71,13 +83,11 @@ public class DelaydetectProvider {
      * Method called when the blueprint container is destroyed.
      */
     public void close() {
-        thread.stop();
-        thread.destroy();
         try {
-            if(delayRegistration != null) {
+            if (delayRegistration != null) {
                 delayRegistration.close();
             }
-            if(topoNodeListenerReg != null) {
+            if (topoNodeListenerReg != null) {
                 topoNodeListenerReg.close();
             }
         } catch (Exception e) {

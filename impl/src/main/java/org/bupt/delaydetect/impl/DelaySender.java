@@ -36,31 +36,27 @@ import java.util.Map;
 import java.util.concurrent.Future;
 
 public class DelaySender implements Runnable {
-
     private static final Logger LOG = LoggerFactory.getLogger(DelaySender.class);
     private final DataBroker dataBroker;
     private final DelaydetectConfig delaydetectConfig;
     private final PacketProcessingService packetProcessingService;
     private final SalEchoService salEchoService;
+    private final PacketDispatcher packetDispatcher;
+    private final InventoryReader inventoryReader;
     private Map<String, Long> echoDelayMap;
 
-    public DelaySender(DataBroker dataBroker, DelaydetectConfig delaydetectConfig, PacketProcessingService packetProcessingService, SalEchoService salEchoService, Map<String, Long> echoDelayMap) {
+    public DelaySender(DataBroker dataBroker, DelaydetectConfig delaydetectConfig, PacketProcessingService packetProcessingService, SalEchoService salEchoService, PacketDispatcher packetDispatcher, InventoryReader inventoryReader, Map<String, Long> echoDelayMap) {
         this.dataBroker = dataBroker;
         this.delaydetectConfig = delaydetectConfig;
         this.packetProcessingService = packetProcessingService;
         this.salEchoService = salEchoService;
+        this.packetDispatcher = packetDispatcher;
+        this.inventoryReader = inventoryReader;
         this.echoDelayMap = echoDelayMap;
     }
 
     @Override
     public void run() {
-
-        PacketDispatcher packetDispatcher = new PacketDispatcher();
-        packetDispatcher.setPacketProcessingService(packetProcessingService);
-        InventoryReader inventoryReader = new InventoryReader(dataBroker);
-        inventoryReader.setRefreshData(true);
-        inventoryReader.readInventory();
-
         while (delaydetectConfig.isIsActive()) {
             IPv4 iPv4 = new IPv4();
             iPv4.setTtl((byte) 1).setProtocol((byte) KnownIpProtocols.Experimentation1.getIntValue());
@@ -98,20 +94,18 @@ public class DelaySender implements Runnable {
                     long echoDelay = (Time2 - Time1);
                     echoDelayMap.put(nodeId, echoDelay);
                     // LOG.info("echo " + nodeId + ": " + echoDelay);
-
                 }
             } catch (ConstructionException | UnknownHostException | PacketException e) {
                 e.printStackTrace();
             }
 
-            try {
+            /*try {
                 Thread.sleep(delaydetectConfig.getQuerryDelay() * 100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
 
-            }
+            }*/
         }
-
     }
 
     private byte[] mergeOptions(byte[] aOption, byte[] bOption) {
